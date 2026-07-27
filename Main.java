@@ -42,6 +42,7 @@ public class Main {
      * This method will read all the lines, that are returned by {@code Utility.readLinesFromFlatfile()}
      * It analyzes them and splits them into several data models, which will fit the data model created for the project.
      * Last but not least, the filtered data will be written into the HashMaps, defined above.
+     *
      * @param lines
      * @param customers
      * @param orders
@@ -124,5 +125,23 @@ public class Main {
 
             } catch (Exception e) {}
         }
+    }
+
+    /**
+     * This method is designed to export all the data, that was read in the {@code importData()} method
+     * and export the Maps, that were used to manage the data.
+     *
+     * @param outputDirectory
+     * @param orderMap
+     * @param customerMap
+     * @param addressMap
+     */
+    public static void exportData(
+            String outputDirectory,
+            Map<Integer, Order> orderMap,
+            Map<String, Customer> customerMap,
+            Map<Integer, Address> addressMap
+    ) {
+
     }
 }
