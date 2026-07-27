@@ -1,4 +1,5 @@
 package bs7projekt;
+import bs7projekt.src.dtos.CustomerRevenueDto;
 import bs7projekt.src.models.Address;
 import bs7projekt.src.models.Customer;
 import bs7projekt.src.models.Order;
@@ -17,12 +18,24 @@ public class Main {
         Map<Integer, Order> orders = new HashMap<>();
         Map<Integer, Address> addresses = new HashMap<>();
 
+        // Assign data from lines[] to the according HashMaps
         importData(
                 lines,
                 customers,
                 orders,
                 addresses
         );
+
+        CustomerRevenueDto test = Customer.getCustomerSalesVolumeSinceTime(
+                orders,
+                (Date) null,
+                (byte) 10,
+                null,
+                null,
+                null
+        );
+
+        System.out.println(test.customer.getFirstname() + " " + test.customer.getLastname() + " | " + test.salesVolume + "€");
     }
 
     /**
@@ -47,66 +60,69 @@ public class Main {
         Map<String, Integer> addressLookup = new HashMap<>();
 
         for (String line : lines) {
-            String[] data = line.split("\\|");
+            try {
+                String[] data = line.split("\\|");
 
-            // ------------------------
-            // Customer
-            // ------------------------
-            String email = data[4];
-            Customer customer = customers.get(email);
+                // ------------------------
+                // Customer
+                // ------------------------
+                String email = data[4];
+                Customer customer = customers.get(email);
 
-            if (customer == null) {
-                customer = new Customer(
-                        customerId++,
-                        data[0],
-                        data[1],
-                        Date.valueOf(data[2]),
-                        data[4]
+                if (customer == null) {
+                    customer = new Customer(
+                            customerId++,
+                            data[0],
+                            data[1],
+                            Date.valueOf(data[2]),
+                            data[4]
+                    );
+                    customers.put(email, customer);
+                }
+
+                // ------------------------
+                // Address
+                // ------------------------
+                String addressKey =
+                        data[5] + "|" +
+                                data[6] + "|" +
+                                data[7] + "|" +
+                                data[8];
+
+                Integer existingAddressId = addressLookup.get(addressKey);
+                Address address;
+
+                if (existingAddressId == null) {
+                    address = new Address(
+                            addressId,
+                            data[5],
+                            data[6],
+                            data[7],
+                            data[8]
+                    );
+
+                    addresses.put(addressId, address);
+                    addressLookup.put(addressKey, addressId);
+                    addressId++;
+                } else {
+                    address = addresses.get(existingAddressId);
+                }
+
+                // ------------------------
+                // Order
+                // ------------------------
+                Order order = new Order(
+                        orderId,
+                        Date.valueOf(data[9]),
+                        Double.parseDouble(data[10]),
+                        customer,
+                        address
                 );
-                customers.put(email, customer);
-            }
 
-            // ------------------------
-            // Address
-            // ------------------------
-            String addressKey =
-                    data[5] + "|" +
-                    data[6] + "|" +
-                    data[7] + "|" +
-                    data[8];
+                orders.put(orderId, order);
+                orderId++;
 
-            Integer existingAddressId = addressLookup.get(addressKey);
-            Address address;
-
-            if (existingAddressId == null) {
-                address = new Address(
-                        addressId,
-                        data[5],
-                        data[6],
-                        data[7],
-                        data[8]
-                );
-
-                addresses.put(addressId, address);
-                addressLookup.put(addressKey, addressId);
-                addressId++;
-            } else {
-                address = addresses.get(existingAddressId);
-            }
-
-            // ------------------------
-            // Order
-            // ------------------------
-            Order order = new Order(
-                    orderId,
-                    Date.valueOf(data[9]),
-                    Double.parseDouble(data[10]),
-                    customer,
-                    address
-            );
-
-            orders.put(orderId, order);
-            orderId++;
+            } catch (Exception e) {}
         }
     }
 }
