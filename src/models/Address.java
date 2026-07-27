@@ -4,9 +4,17 @@ public class Address {
     
     private int id;
     private String street;
-    private int houseNumber;
+    private String houseNumber;
     private String postalCode;
     private String location;
+
+    public Address(int id, String street, String houseNumber, String postalCode, String location) {
+        this.id = id;
+        this.street = street;
+        this.houseNumber = houseNumber;
+        this.postalCode = postalCode;
+        this.location = location;
+    }
 
     public String getLocation() {
         return location;
@@ -24,11 +32,11 @@ public class Address {
         this.postalCode = postalCode;
     }
 
-    public int getHouseNumber() {
+    public String getHouseNumber() {
         return houseNumber;
     }
 
-    public void setHouseNumber(int houseNumber) {
+    public void setHouseNumber(String houseNumber) {
         this.houseNumber = houseNumber;
     }
 
@@ -44,4 +52,7 @@ public class Address {
         return id;
     }
 
+    public void setId(int id) {
+        this.id = id;
+    }
 }

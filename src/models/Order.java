@@ -10,6 +10,14 @@ public class Order {
     private Customer customer;
     private Address address;
 
+    public Order(int id, Date orderDate, double orderPrice, Customer customer, Address address) {
+        this.id = id;
+        this.orderDate = orderDate;
+        this.orderPrice = orderPrice;
+        this.customer = customer;
+        this.address = address;
+    }
+
     public int getId() {
         return id;
     }
@@ -46,4 +54,7 @@ public class Order {
         this.address = address;
     }
 
+    public void setId(int id) {
+        this.id = id;
+    }
 }

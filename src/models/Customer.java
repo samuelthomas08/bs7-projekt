@@ -10,6 +10,14 @@ public class Customer {
     private Date birthday;
     private String email;
 
+    public Customer(int id, String firstname, String lastname, Date birthday, String email) {
+        this.id = id;
+        this.firstname = firstname;
+        this.lastname = lastname;
+        this.birthday = birthday;
+        this.email = email;
+    }
+
     public int getId() {
         return id;
     }
@@ -46,4 +54,7 @@ public class Customer {
         this.email = email;
     }
 
+    public void setId(int id) {
+        this.id = id;
+    }
 }
