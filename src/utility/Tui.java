@@ -34,6 +34,7 @@ public class Tui {
             put("Analyse der Bestellungen in einem Zeitraum", () -> handleAnalyzeOrdersInTimespan(dataContext));
             put("Kunde mit höchstem Umsatz ermitteln", () -> handleHighestRevenueCustomer(dataContext));
             put("Umsatzreichster Kunde seit Zeitpunkt", () -> handleTopCustomerSinceTime(dataContext));
+            put("Kunden mit höchstem Frühumsatz", () -> handleTopCustomersByEarlyRevenue(dataContext));
         }};
 
         byte listMenuCount = 1;
@@ -358,6 +359,53 @@ public class Tui {
         }
 
         return input.isEmpty() ? null : input;
+    }
+
+    /**
+     * Prompts for a time window (in days) and a result count, runs
+     * {@link Order#getTopCustomersByEarlyRevenue} with them, and prints the
+     * resulting ranked list of customers.
+     *
+     * @param dataContext the data to evaluate
+     */
+    private static void handleTopCustomersByEarlyRevenue(DataContextDto dataContext) {
+        System.out.println("Analyse: Kunden mit höchstem Umsatz innerhalb eines Zeitfensters ab ihrem \"Kunde seit\"-Datum (\"exit\" = Zurück zum Hauptmenü)");
+        Scanner scanner = new Scanner(System.in);
+
+        try {
+            String windowInput = readOrderAnalysisFilterInput(scanner, "Zeitfenster in Tagen (Enter = 21): ");
+            int windowInDays = windowInput != null ? Integer.parseInt(windowInput) : 21;
+
+            String limitInput = readOrderAnalysisFilterInput(scanner, "Anzahl der anzuzeigenden Kunden (Enter = 5): ");
+            int rowsLimit = limitInput != null ? Integer.parseInt(limitInput) : 5;
+
+            List<CustomerRevenueDto> results = Order.getTopCustomersByEarlyRevenue(
+                    dataContext.getOrders(),
+                    windowInDays,
+                    rowsLimit
+            );
+
+            if (results.isEmpty()) {
+                System.out.println("\nKeine passenden Bestellungen gefunden.");
+            } else {
+                System.out.println();
+                int rank = 1;
+                for (CustomerRevenueDto dto : results) {
+                    System.out.println(rank + ". " + dto.customer.getFirstname() + " " + dto.customer.getLastname() + " (" + dto.salesVolume + "€)");
+                    rank++;
+                }
+            }
+
+            System.out.println("\nDrücke Enter, um fortzufahren...");
+            scanner.nextLine();
+
+        } catch (MenuExitException e) {
+            // Nutzer wollte abbrechen
+        } catch (Exception e) {
+            System.out.println("Ungültige Eingabe: " + e.getMessage());
+        }
+
+        renderMenu(dataContext);
     }
 
     /**
