@@ -79,6 +79,7 @@ public class Customer {
     // ##########################################
     // Custom Methods
     // ##########################################
+
     /**
      * Finds the customer with the highest total revenue across all orders.
      * Revenue is summed per customer via {@code orderPrice}, and the customer

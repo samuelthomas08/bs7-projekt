@@ -1,42 +1,25 @@
 package bs7projekt.src.utility;
 
+import bs7projekt.src.dtos.CustomerRevenueDto;
 import bs7projekt.src.dtos.DataContextDto;
-import bs7projekt.src.models.Address;
+import bs7projekt.src.dtos.OrderAnalysisDto;
 import bs7projekt.src.models.Customer;
 import bs7projekt.src.models.Order;
 
+import java.time.DayOfWeek;
+import java.time.Month;
+import java.time.Year;
 import java.util.*;
 
 public class Tui {
 
     /**
-     * Renders the main text-based menu to the console and handles a single round of
-     * user interaction.
-     * <p>
-     * The console is cleared first, then a title is printed, followed by a numbered
-     * list of the available menu options. Menu options are represented internally as
-     * a {@link Map} from a human-readable label to a {@link Runnable} that performs the
-     * corresponding action; the {@link DataContextDto} is captured by these lambdas so
-     * each action operates on the current application state.
-     * <p>
-     * The user is prompted to enter the number of the desired menu option via the
-     * console. To resolve that number back to the correct action, the map's entries are
-     * copied into a {@link List}, which allows positional access by index (note that
-     * {@link HashMap} itself does not guarantee a stable iteration order, but since the
-     * printed numbering and the list conversion both iterate over the same map instance
-     * within a single call, they are consistent with each other for the duration of this
-     * method call).
-     * <p>
-     * If the entered number does not correspond to a valid menu option (e.g. it is out
-     * of range, or not a valid byte), the resulting exception is caught and its message
-     * is printed to the console rather than crashing the program.
-     * <p>
-     * After the selected action has been executed (or the error has been printed), the
-     * console is cleared again before the method returns.
+     * Renders the main text-based menu, lets the user pick an option by number,
+     * and executes the corresponding action. Invalid input is caught and printed
+     * instead of crashing the program.
      *
-     * @param dataContext the {@link DataContextDto} holding the current customer, order,
-     *                     and address data, passed to menu actions that need to read or
-     *                     modify it (e.g. exporting data)
+     * @param dataContext the current customer, order, and address data, passed to
+     *                     menu actions that read or modify it
      */
     public static void renderMenu(
             DataContextDto dataContext
@@ -46,10 +29,11 @@ public class Tui {
         System.out.println("---- BS7 Projekt ----\n");
 
         Map<String, Runnable> menuOptions = new HashMap<>(){{
-            put("Daten exportieren", () -> {
-                Utility.exportData(dataContext);
-            });
-            put("Bestellungen filtern", () -> {});
+            put("Daten exportieren", () -> handleExportData(dataContext));
+            put("Bestellungen filtern", () -> handleFilterOrders(dataContext));
+            put("Analyse der Bestellungen in einem Zeitraum", () -> handleAnalyzeOrdersInTimespan(dataContext));
+            put("Kunde mit höchstem Umsatz ermitteln", () -> handleHighestRevenueCustomer(dataContext));
+            put("Umsatzreichster Kunde seit Zeitpunkt", () -> handleTopCustomerSinceTime(dataContext));
         }};
 
         byte listMenuCount = 1;
@@ -75,21 +59,252 @@ public class Tui {
     }
 
     /**
-     * Prompts the user via the console to enter the absolute path to a CSV file,
-     * validates that the entered path actually points to a file with a {@code .csv}
-     * extension, and then delegates to {@link Utility#readLinesFromFlatfile(String)}
-     * to read its content.
-     * <p>
-     * The user is repeatedly prompted in a loop until a path ending in {@code .csv}
-     * is entered; the file extension is determined by looking at the substring after
-     * the last backslash ({@code \}) and the last dot in the resulting file name. Note
-     * that this validation only checks the file extension of the entered string and
-     * does not verify that the file actually exists or is readable — that is handled
-     * separately by {@link Utility#readLinesFromFlatfile(String)}.
+     * Exports all current data via {@link Utility#exportData(DataContextDto)} and
+     * returns to the main menu afterwards.
      *
-     * @return a {@code String[]} containing one array entry per line of the selected
-     *         CSV file, as returned by {@link Utility#readLinesFromFlatfile(String)}
-     *         (which may itself return {@code null} if the file cannot be read)
+     * @param dataContext the data to export
+     */
+    private static void handleExportData(DataContextDto dataContext) {
+        Utility.exportData(dataContext);
+
+        renderMenu(dataContext);
+    }
+
+    /**
+     * Prompts for optional order filters (customer, postal code, date, week,
+     * weekday, month, year), runs {@link Order#filterOrders} with them, and
+     * prints the resulting count and total revenue.
+     *
+     * @param dataContext the data to filter and read customers from
+     */
+    private static void handleFilterOrders(DataContextDto dataContext) {
+        System.out.println("Welche Filteroptionen möchtest Du verwenden? (Leerlassen = Überspringen, \"exit\" = Zurück zum Hauptmenü)");
+
+        Scanner scanner = new Scanner(System.in);
+
+        try {
+            Customer customer = null;
+            String postalCode;
+            Date date = null;
+            Byte week = null;
+            DayOfWeek day = null;
+            Month month = null;
+            Year year = null;
+
+            String customerEmail = readOrderAnalysisFilterInput(scanner, "Kunde (E-Mail-Adresse): ");
+            if (customerEmail != null) {
+                customer = dataContext.getCustomers().get(customerEmail);
+            }
+
+            postalCode = readOrderAnalysisFilterInput(scanner, "Postleitzahl: ");
+
+            String dateInput = readOrderAnalysisFilterInput(scanner, "Datum (yyyy-MM-dd): ");
+            if (dateInput != null) {
+                date = java.sql.Date.valueOf(dateInput);
+            }
+
+            String weekInput = readOrderAnalysisFilterInput(scanner, "Kalenderwoche (1-53): ");
+            if (weekInput != null) {
+                week = Byte.parseByte(weekInput);
+            }
+
+            String dayInput = readOrderAnalysisFilterInput(scanner, "Wochentag: ");
+            if (dayInput != null) {
+                switch (dayInput.toUpperCase()) {
+                    case "MONTAG" -> dayInput = "monday";
+                    case "DIENSTAG" -> dayInput = "tuesday";
+                    case "MITWOCH" -> dayInput = "wednesday";
+                    case "DONNERSTAG" -> dayInput = "thursday";
+                    case "FRIDAY" -> dayInput = "freitag";
+                    case "SAMSTAG" -> dayInput = "samstag";
+                    case "SONNTAG" -> dayInput = "sunday";
+                    default -> System.out.println("Die Eingabe ist kein Wochentag");
+                }
+
+                day = DayOfWeek.valueOf(dayInput.toUpperCase());
+            }
+
+            String monthInput = readOrderAnalysisFilterInput(scanner, "Monat (1-12): ");
+            if (monthInput != null) {
+                month = Month.of(Integer.parseInt(monthInput));
+            }
+
+            String yearInput = readOrderAnalysisFilterInput(scanner, "Jahr: ");
+            if (yearInput != null) {
+                year = Year.of(Integer.parseInt(yearInput));
+            }
+
+            OrderAnalysisDto result = Order.filterOrders(
+                    dataContext.getOrders(),
+                    customer,
+                    postalCode,
+                    date,
+                    week,
+                    day,
+                    month,
+                    year
+            );
+
+            System.out.println("\nAnzahl Bestellungen: " + result.totalOrders);
+            System.out.println("Gesamtsumme: " + result.totalOrderSum + "€");
+            System.out.println("\nDrücke Enter, um fortzufahren...");
+            scanner.nextLine();
+
+        } catch (MenuExitException e) {
+            // Nutzer wollte abbrechen -> einfach weiter zu renderMenu()
+        } catch (Exception e) {
+            System.out.println("Ungültige Eingabe: " + e.getMessage());
+        }
+
+        renderMenu(dataContext);
+    }
+
+    /**
+     * Prompts for an optional start and end date, runs
+     * {@link Order#filterOrdersInTimespan} with them, and prints the resulting
+     * count and total revenue.
+     *
+     * @param dataContext the data to filter
+     */
+    private static void handleAnalyzeOrdersInTimespan(DataContextDto dataContext) {
+        System.out.println("Bitte Zeitraum eingeben (Leerlassen = unbegrenzt, \"exit\" = Zurück zum Hauptmenü)");
+        Scanner scanner = new Scanner(System.in);
+
+        try {
+            Date startDate = null;
+            Date endDate = null;
+
+            String startInput = readOrderAnalysisFilterInput(scanner, "Startdatum (yyyy-MM-dd): ");
+            if (startInput != null) {
+                startDate = java.sql.Date.valueOf(startInput);
+            }
+
+            String endInput = readOrderAnalysisFilterInput(scanner, "Enddatum (yyyy-MM-dd): ");
+            if (endInput != null) {
+                endDate = java.sql.Date.valueOf(endInput);
+            }
+
+            OrderAnalysisDto result = Order.filterOrdersInTimespan(
+                    dataContext.getOrders(),
+                    startDate,
+                    endDate
+            );
+
+            System.out.println("\nAnzahl Bestellungen: " + result.totalOrders);
+            System.out.println("Gesamtsumme: " + result.totalOrderSum + "€");
+            System.out.println("\nDrücke Enter, um fortzufahren...");
+            scanner.nextLine();
+
+        } catch (MenuExitException e) {
+            // Nutzer wollte abbrechen
+        } catch (Exception e) {
+            System.out.println("Ungültige Eingabe: " + e.getMessage());
+        }
+
+        renderMenu(dataContext);
+    }
+
+    /**
+     * Determines and prints the customer with the highest total revenue via
+     * {@link Customer#getCustomerWithHighestSalesVolume}.
+     *
+     * @param dataContext the data to evaluate
+     */
+    private static void handleHighestRevenueCustomer(DataContextDto dataContext) {
+        CustomerRevenueDto result = Customer.getCustomerWithHighestSalesVolume(dataContext.getOrders());
+
+        if (result.customer == null) {
+            System.out.println("\nEs liegen keine Bestellungen vor.");
+        } else {
+            System.out.println("\nKunde mit höchstem Umsatz: " +
+                    result.customer.getFirstname() + " " + result.customer.getLastname() +
+                    " (" + result.salesVolume + "€)");
+        }
+
+        System.out.println("\nDrücke Enter, um fortzufahren...");
+        new Scanner(System.in).nextLine();
+
+        renderMenu(dataContext);
+    }
+
+    /**
+     * Prompts for optional time filters (date, week, weekday, month, year),
+     * runs {@link Customer#getCustomerSalesVolumeSinceTime} with them, and
+     * prints the resulting top customer.
+     *
+     * @param dataContext the data to evaluate
+     */
+    private static void handleTopCustomerSinceTime(DataContextDto dataContext) {
+        System.out.println("Welche Filteroptionen möchtest Du verwenden? (Leerlassen = Überspringen, \"exit\" = Zurück zum Hauptmenü)");
+        Scanner scanner = new Scanner(System.in);
+
+        try {
+            Date date = null;
+            Byte week = null;
+            DayOfWeek day = null;
+            Month month = null;
+            Year year = null;
+
+            String dateInput = readOrderAnalysisFilterInput(scanner, "Datum ab (yyyy-MM-dd): ");
+            if (dateInput != null) {
+                date = java.sql.Date.valueOf(dateInput);
+            }
+
+            String weekInput = readOrderAnalysisFilterInput(scanner, "Kalenderwoche (1-53): ");
+            if (weekInput != null) {
+                week = Byte.parseByte(weekInput);
+            }
+
+            String dayInput = readOrderAnalysisFilterInput(scanner, "Wochentag (z. B. MONDAY): ");
+            if (dayInput != null) {
+                day = DayOfWeek.valueOf(dayInput.toUpperCase());
+            }
+
+            String monthInput = readOrderAnalysisFilterInput(scanner, "Monat (1-12): ");
+            if (monthInput != null) {
+                month = Month.of(Integer.parseInt(monthInput));
+            }
+
+            String yearInput = readOrderAnalysisFilterInput(scanner, "Jahr: ");
+            if (yearInput != null) {
+                year = Year.of(Integer.parseInt(yearInput));
+            }
+
+            CustomerRevenueDto result = Customer.getCustomerSalesVolumeSinceTime(
+                    dataContext.getOrders(),
+                    date,
+                    week,
+                    day,
+                    month,
+                    year
+            );
+
+            if (result.customer == null) {
+                System.out.println("\nKeine passenden Bestellungen gefunden.");
+            } else {
+                System.out.println("\nUmsatzreichster Kunde: " +
+                        result.customer.getFirstname() + " " + result.customer.getLastname() +
+                        " (" + result.salesVolume + "€)");
+            }
+
+            System.out.println("\nDrücke Enter, um fortzufahren...");
+            scanner.nextLine();
+
+        } catch (MenuExitException e) {
+            // Nutzer wollte abbrechen
+        } catch (Exception e) {
+            System.out.println("Ungültige Eingabe: " + e.getMessage());
+        }
+
+        renderMenu(dataContext);
+    }
+
+    /**
+     * Prompts for the absolute path to a CSV file, repeating until a
+     * {@code .csv}-extension path is entered, and reads it via
+     * {@link Utility#readLinesFromFlatfile(String)}.
+     *
+     * @return the file's lines, or {@code null} if reading failed
      */
     public static String[] getResourceFile() {
         String path;
@@ -113,19 +328,8 @@ public class Tui {
     }
 
     /**
-     * Clears the current console output.
-     * <p>
-     * This is implemented by spawning a new {@code cmd /c cls} process and waiting for
-     * it to finish, with {@link ProcessBuilder#inheritIO()} used so the child process
-     * shares the current process's standard input, output, and error streams (allowing
-     * the {@code cls} command to actually affect the visible console window). Note that
-     * this implementation is Windows-specific, since {@code cmd} and {@code cls} are not
-     * available on other operating systems.
-     * <p>
-     * If starting or waiting for the process fails for any reason (e.g. an
-     * {@link InterruptedException} or {@link java.io.IOException}), the error is caught
-     * and a message is printed to the console instead of propagating the exception
-     * further.
+     * Clears the console by running {@code cmd /c cls} and waiting for it to
+     * finish. Windows-specific; errors are caught and printed rather than thrown.
      */
     public static void clearConsole() {
         try {
@@ -135,4 +339,30 @@ public class Tui {
 
         }
     }
+
+    /**
+     * Prompts for and reads a single filter value, trimmed. Returns {@code null}
+     * if left empty ("skip this filter"), or throws a {@link MenuExitException}
+     * if the user typed "exit".
+     *
+     * @param scanner the scanner to read from
+     * @param prompt  the prompt text shown to the user
+     * @return the entered value, or {@code null} if left empty
+     */
+    private static String readOrderAnalysisFilterInput(Scanner scanner, String prompt) {
+        System.out.print(prompt);
+        String input = scanner.nextLine().trim();
+
+        if (input.equalsIgnoreCase("exit")) {
+            throw new MenuExitException();
+        }
+
+        return input.isEmpty() ? null : input;
+    }
+
+    /**
+     * Signals that the user typed "exit" during filter input and wants to
+     * return to the main menu.
+     */
+    private static class MenuExitException extends RuntimeException {}
 }
