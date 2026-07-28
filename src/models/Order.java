@@ -1,16 +1,15 @@
 package bs7projekt.src.models;
 
+import bs7projekt.src.dtos.CustomerRevenueDto;
 import bs7projekt.src.dtos.OrderAnalysisDto;
 
 import java.time.DayOfWeek;
 import java.time.Month;
 import java.time.Year;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.Map;
+import java.util.*;
 
 public class Order {
-    
+
     private int id;
     private Date orderDate;
     private double orderPrice;
@@ -73,6 +72,24 @@ public class Order {
     // ##########################################
     // Custom Methods
     // ##########################################
+
+    /**
+     * Filters orders by any combination of customer, postal code, exact date,
+     * week, weekday, month, and year, and aggregates the count and total revenue
+     * of the matching orders. All filter parameters are optional (nullable);
+     * any that are {@code null} are ignored.
+     *
+     * @param orderMap   the map of all orders to evaluate
+     * @param customer   only include orders from this customer, or {@code null} to ignore
+     * @param postalCode only include orders with this postal code, or {@code null} to ignore
+     * @param date       only include orders on this exact date, or {@code null} to ignore
+     * @param week       only include orders in this ISO week of the year, or {@code null} to ignore
+     * @param day        only include orders on this weekday, or {@code null} to ignore
+     * @param month      only include orders in this month, or {@code null} to ignore
+     * @param year       only include orders in this year, or {@code null} to ignore
+     * @return an {@link OrderAnalysisDto} containing the count and total revenue
+     *         of the matching orders
+     */
     public static OrderAnalysisDto filterOrders(
             Map<Integer, Order> orderMap,
             Customer customer,
@@ -131,6 +148,17 @@ public class Order {
         return new OrderAnalysisDto(count, sum);
     }
 
+    /**
+     * Aggregates the count and total revenue of all orders whose date falls
+     * within the given timespan. Either bound may be {@code null}, in which
+     * case that side of the timespan is left unrestricted.
+     *
+     * @param orderMap  the map of all orders to evaluate
+     * @param startDate only include orders on or after this date, or {@code null} for no lower bound
+     * @param endDate   only include orders on or before this date, or {@code null} for no upper bound
+     * @return an {@link OrderAnalysisDto} containing the count and total revenue
+     *         of the matching orders
+     */
     public static OrderAnalysisDto filterOrdersInTimespan(
             Map<Integer, Order> orderMap,
             Date startDate,
@@ -155,4 +183,58 @@ public class Order {
 
         return new OrderAnalysisDto(count, sum);
     }
+
+    /**
+     * Finds the customers with the highest revenue generated within a fixed
+     * window of days after their {@code customerSince} date (e.g. their first
+     * three weeks). Customers without a {@code customerSince} date are skipped.
+     *
+     * @param orderMap     the map of all orders to evaluate
+     * @param windowInDays the size of the window in days from each customer's {@code customerSince} date
+     * @param rowsLimit    the maximum number of top customers to return
+     * @return a list of {@link CustomerRevenueDto}, sorted descending by revenue,
+     *         containing at most {@code rowsLimit} entries
+     */
+    public static List<CustomerRevenueDto> getTopCustomersByEarlyRevenue(
+            Map<Integer, Order> orderMap,
+            int windowInDays,
+            int rowsLimit
+    ) {
+        Map<Customer, Double> earlyRevenue = new HashMap<>();
+
+        for (Order order : orderMap.values()) {
+            Customer customer = order.getCustomer();
+            Date customerSince = customer.getCustomerSince();
+            Date orderDate = order.getOrderDate();
+
+            if (customerSince == null) {
+                continue;
+            }
+
+            Calendar windowEnd = Calendar.getInstance();
+            windowEnd.setTime(customerSince);
+            windowEnd.add(Calendar.DAY_OF_YEAR, windowInDays);
+
+            boolean withinWindow =
+                    !orderDate.before(customerSince) &&
+                            orderDate.before(windowEnd.getTime());
+
+            if (!withinWindow) {
+                continue;
+            }
+
+            double currentRevenue = earlyRevenue.getOrDefault(customer, 0.0);
+            earlyRevenue.put(customer, currentRevenue + order.getOrderPrice());
+        }
+
+        List<CustomerRevenueDto> result = new ArrayList<>();
+        for (Map.Entry<Customer, Double> entry : earlyRevenue.entrySet()) {
+            result.add(new CustomerRevenueDto(entry.getKey(), entry.getValue()));
+        }
+
+        result.sort((a, b) -> Double.compare(b.salesVolume, a.salesVolume));
+
+        return result.subList(0, Math.min(rowsLimit, result.size()));
+    }
+
 }

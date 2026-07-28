@@ -1,4 +1,5 @@
 package bs7projekt.src.utility;
+import bs7projekt.src.dtos.DataContextDto;
 import bs7projekt.src.models.Address;
 import bs7projekt.src.models.Customer;
 import bs7projekt.src.models.Order;
@@ -8,26 +9,29 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Date;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
 
 public class Utility {
+
     /**
-    * Reads the file specified in "filePath" and returns a String-array with every
-    * line of the file as an array entry. In any error cases
-    * the array will be null.
-    * @param filePath Absolute path to the file to read.
-    * @return File content or null if an error occurs.
-    */
+     * Reads a flatfile (e.g. a pipe-delimited CSV file) from the given path and
+     * returns its content as a {@code String[]}, one array entry per line.
+     *
+     * @param filePath the absolute path to the file that should be read
+     * @return a {@code String[]} containing one array entry per line of the file,
+     *         or {@code null} if an error occurred while reading the file
+     */
     public static String[] readLinesFromFlatfile(String filePath) {
         String[] data = null;
         ArrayList<String> tmpData = new ArrayList<>();
         Path path = java.nio.file.Paths.get(filePath);
-        
-        try (BufferedReader brd = 
-            Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+
+        try (BufferedReader brd =
+                     Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             String line = "";
             while((line = brd.readLine()) != null) {
                 tmpData.add(line);
@@ -39,26 +43,23 @@ public class Utility {
         return data;
     }
 
-
     /**
-     * This method will read all the lines, that are returned by {@code Utility.readLinesFromFlatfile()}
-     * It analyzes them and splits them into several data models, which will fit the data model created for the project.
-     * Last but not least, the filtered data will be written into the HashMaps, defined above.
+     * Parses the raw lines returned by {@link #readLinesFromFlatfile(String)} into
+     * the project's domain models and stores them in the given {@link DataContextDto}.
+     * Customers and addresses are deduplicated across lines; lines that remain invalid
+     * after normalization are skipped and logged instead of imported.
      *
-     * @param lines
-     * @param customers
-     * @param orders
-     * @param addresses
+     * @param lines       the raw lines of the source file
+     * @param dataContext the {@link DataContextDto} whose maps will be populated
      */
     public static void importData(
             String[] lines,
-            Map<String, Customer> customers,
-            Map<Integer, Order> orders,
-            Map<Integer, Address> addresses
+            DataContextDto dataContext
     ) {
         int addressId = 1;
         int orderId = 1;
         int customerId = 1;
+        int skippedLines = 0;
 
         Map<String, Integer> addressLookup = new HashMap<>();
 
@@ -70,17 +71,18 @@ public class Utility {
                 // Customer
                 // ------------------------
                 String email = data[4];
-                Customer customer = customers.get(email);
+                Customer customer = dataContext.getCustomers().get(email);
 
                 if (customer == null) {
                     customer = new Customer(
                             customerId++,
                             data[0],
                             data[1],
-                            Date.valueOf(data[2]),
-                            data[4]
+                            parseDate(data[2]),
+                            data[4],
+                            parseDate(data[3])
                     );
-                    customers.put(email, customer);
+                    dataContext.getCustomers().put(email, customer);
                 }
 
                 // ------------------------
@@ -104,11 +106,11 @@ public class Utility {
                             data[8]
                     );
 
-                    addresses.put(addressId, address);
+                    dataContext.getAddresses().put(addressId, address);
                     addressLookup.put(addressKey, addressId);
                     addressId++;
                 } else {
-                    address = addresses.get(existingAddressId);
+                    address = dataContext.getAddresses().get(existingAddressId);
                 }
 
                 // ------------------------
@@ -116,31 +118,33 @@ public class Utility {
                 // ------------------------
                 Order order = new Order(
                         orderId,
-                        Date.valueOf(data[9]),
-                        Double.parseDouble(data[10]),
+                        parseDate(data[9]),
+                        Double.parseDouble(normalizePrice(data[10])),
                         customer,
                         address
                 );
 
-                orders.put(orderId, order);
+                dataContext.getOrders().put(orderId, order);
                 orderId++;
 
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                skippedLines++;
+                System.out.println("Fehlerhafte Zeile übersprungen: " + line + " (" + e.getMessage() + ")");
+            }
         }
+
+        System.out.println(skippedLines + " Zeile(n) wegen unkorrigierbarer Fehler übersprungen.");
     }
 
     /**
-     * This method is designed to export all the data, that was read in the {@code importData()} method
-     * and export the Maps, that were used to manage the data.
+     * Exports all data held by the given {@link DataContextDto} into three separate
+     * CSV files ({@code customers.csv}, {@code addresses.csv}, {@code orders.csv})
+     * in a user-specified directory, which is created if it does not yet exist.
      *
-     * @param orderMap
-     * @param customerMap
-     * @param addressMap
+     * @param dataContext the {@link DataContextDto} containing the data to be exported
      */
     public static void exportData(
-            Map<Integer, Order> orderMap,
-            Map<String, Customer> customerMap,
-            Map<Integer, Address> addressMap
+            DataContextDto dataContext
     ) {
         Scanner scanner = new Scanner(System.in);
         System.out.print("In welches Verzeichnis sollen die Daten exportiert werden? ");
@@ -151,16 +155,23 @@ public class Utility {
         if (!dir.exists()) {
             dir.mkdirs();
         }
-        exportCustomers(outputPath + "/customers.csv", customerMap);
-        exportAddresses(outputPath + "/addresses.csv", addressMap);
-        exportOrders(outputPath + "/orders.csv", orderMap);
+        exportCustomers(outputPath + "/customers.csv", dataContext.getCustomers());
+        exportAddresses(outputPath + "/addresses.csv", dataContext.getAddresses());
+        exportOrders(outputPath + "/orders.csv", dataContext.getOrders());
 
         System.out.println("Der Export wurde erfolgreich durchgeführt!");
     }
 
+    /**
+     * Writes all customers from the given map to a CSV file at the specified path,
+     * with a header row followed by one comma-separated line per customer.
+     *
+     * @param path        the full file path (including file name) to write to
+     * @param customerMap the map of customers to export, keyed by email address
+     */
     private static void exportCustomers(String path, Map<String, Customer> customerMap) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(path))) {
-            writer.write("id,firstname,lastname,birthday,email");
+            writer.write("id,firstname,lastname,birthday,email,customerSince");
             writer.newLine();
 
             for (Customer c : customerMap.values()) {
@@ -169,7 +180,8 @@ public class Utility {
                                 c.getFirstname() + "," +
                                 c.getLastname() + "," +
                                 c.getBirthday() + "," +
-                                c.getEmail()
+                                c.getEmail() + "," +
+                                c.getCustomerSince()
                 );
                 writer.newLine();
             }
@@ -178,6 +190,13 @@ public class Utility {
         }
     }
 
+    /**
+     * Writes all addresses from the given map to a CSV file at the specified path,
+     * with a header row followed by one comma-separated line per address.
+     *
+     * @param path       the full file path (including file name) to write to
+     * @param addressMap the map of addresses to export, keyed by internal address ID
+     */
     private static void exportAddresses(String path, Map<Integer, Address> addressMap) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(path))) {
             writer.write("id,street,houseNumber,postalCode,location");
@@ -198,6 +217,14 @@ public class Utility {
         }
     }
 
+    /**
+     * Writes all orders from the given map to a CSV file at the specified path.
+     * Customer and address references are exported as their IDs (foreign keys)
+     * rather than full objects, so the file can be loaded into a relational database.
+     *
+     * @param path     the full file path (including file name) to write to
+     * @param orderMap the map of orders to export, keyed by internal order ID
+     */
     private static void exportOrders(String path, Map<Integer, Order> orderMap) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(path))) {
             writer.write("id,orderDate,orderPrice,customerId,addressId");
@@ -218,4 +245,58 @@ public class Utility {
         }
     }
 
+    /**
+     * Replaces German-style decimal commas with dots (e.g. {@code "46,85"} to
+     * {@code "46.85"}) so the value can be parsed by {@link Double#parseDouble(String)}.
+     *
+     * @param raw the raw, potentially comma-separated price string
+     * @return the normalized price string, using a dot as the decimal separator
+     */
+    private static String normalizePrice(String raw) {
+        return raw.replace(",", ".");
+    }
+
+    /**
+     * Lookup table mapping full German month names to their two-digit numeric
+     * representation, used by {@link #normalizeDate(String)}.
+     */
+    private static final Map<String, String> GERMAN_MONTHS = new HashMap<>() {{
+        put("Januar", "01"); put("Februar", "02"); put("März", "03"); put("April", "04");
+        put("Mai", "05"); put("Juni", "06"); put("Juli", "07"); put("August", "08");
+        put("September", "09"); put("Oktober", "10"); put("November", "11"); put("Dezember", "12");
+    }};
+
+    /**
+     * Normalizes a raw date string into ISO-8601 format ({@code yyyy-MM-dd}) by
+     * replacing dots with dashes and spelled-out German month names with their
+     * numeric value. Does not validate that the resulting date actually exists.
+     *
+     * @param raw the raw date string, potentially malformed
+     * @return the normalized date string in ISO-8601 format
+     */
+    private static String normalizeDate(String raw) {
+        raw = raw.replace(".", "-"); // 2021.08.24 -> 2021-08-24
+
+        for (Map.Entry<String, String> entry : GERMAN_MONTHS.entrySet()) {
+            raw = raw.replace(entry.getKey(), entry.getValue()); // 2022-Juli-04 -> 2022-07-04
+        }
+
+        return raw;
+    }
+
+    /**
+     * Normalizes and strictly parses a raw date string into a {@link java.sql.Date}.
+     * Unlike {@link java.sql.Date#valueOf(String)}, this throws on impossible
+     * calendar dates (e.g. {@code "1966-02-31"}) instead of silently rolling them over.
+     *
+     * @param raw the raw date string to normalize and parse
+     * @return a {@link java.sql.Date} representing the parsed date
+     * @throws java.time.format.DateTimeParseException if the normalized string does
+     *         not represent a valid, existing calendar date
+     */
+    private static Date parseDate(String raw) {
+        String normalized = normalizeDate(raw);
+        LocalDate localDate = LocalDate.parse(normalized);
+        return Date.valueOf(localDate);
+    }
 }
