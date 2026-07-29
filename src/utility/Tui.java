@@ -49,11 +49,11 @@ public class Tui {
             System.out.println("Was möchtest du tun?");
 
             Scanner scanner = new Scanner(System.in);
-            byte userChoice = Byte.parseByte(scanner.nextLine());
-
-            List<Map.Entry<String, Runnable>> options = new ArrayList<>(menuOptions.entrySet());
-
+            byte userChoice;
             try {
+                userChoice = Byte.parseByte(scanner.nextLine());
+
+                List<Map.Entry<String, Runnable>> options = new ArrayList<>(menuOptions.entrySet());
                 options.get(userChoice - 1).getValue().run();
             } catch (Exception e) {
                 System.out.println(e.getMessage());
@@ -114,10 +114,10 @@ public class Tui {
                 switch (dayInput.toUpperCase()) {
                     case "MONTAG" -> dayInput = "monday";
                     case "DIENSTAG" -> dayInput = "tuesday";
-                    case "MITWOCH" -> dayInput = "wednesday";
+                    case "MITTWOCH" -> dayInput = "wednesday";
                     case "DONNERSTAG" -> dayInput = "thursday";
-                    case "FRIDAY" -> dayInput = "freitag";
-                    case "SAMSTAG" -> dayInput = "samstag";
+                    case "FREITAG" -> dayInput = "friday";
+                    case "SAMSTAG" -> dayInput = "saturday";
                     case "SONNTAG" -> dayInput = "sunday";
                     default -> System.out.println("Die Eingabe ist kein Wochentag");
                 }
@@ -152,7 +152,7 @@ public class Tui {
             scanner.nextLine();
 
         } catch (MenuExitException e) {
-            // Nutzer wollte abbrechen -> einfach weiter zu renderMenu()
+            // Nutzer wollte abbrechen -> weiter zu renderMenu()
         } catch (Exception e) {
             System.out.println("Ungültige Eingabe: " + e.getMessage());
         }
@@ -307,7 +307,7 @@ public class Tui {
             System.out.println("Wo befindet sich die CSV-Datei (Absoluter Pfad):");
             path = scanner.nextLine();
 
-            if(path.substring(path.indexOf('.')+1) == "csv") {
+            if(!path.toLowerCase().endsWith(".csv")) {
                 System.out.println("Die angegebene Datei ist keine CSV-Datei!\n");
             } else {
                 break;
@@ -394,8 +394,6 @@ public class Tui {
         } catch (Exception e) {
             System.out.println("Ungültige Eingabe: " + e.getMessage());
         }
-
-        renderMenu(dataContext);
     }
 
     /**

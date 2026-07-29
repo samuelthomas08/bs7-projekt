@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -285,16 +286,16 @@ public class Utility {
     }
 
     /**
-     * Normalizes and strictly parses a raw date string into a {@link java.sql.Date}.
+     * Normalizes and strictly parses a raw date string into a {@link LocalDate}.
      * Unlike {@link java.sql.Date#valueOf(String)}, this throws on impossible
      * calendar dates (e.g. {@code "1966-02-31"}) instead of silently rolling them over.
      *
      * @param raw the raw date string to normalize and parse
-     * @return a {@link java.sql.Date} representing the parsed date
+     * @return a {@link LocalDate} representing the parsed date
      * @throws java.time.format.DateTimeParseException if the normalized string does
      *         not represent a valid, existing calendar date
      */
-    private static LocalDate parseDate(String raw) {
+    private static LocalDate parseDate(String raw) throws DateTimeParseException {
         return LocalDate.parse(normalizeDate(raw));
     }
 }
