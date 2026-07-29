@@ -146,8 +146,8 @@ public class Tui {
                     year
             );
 
-            System.out.println("\nAnzahl Bestellungen: " + result.totalOrders);
-            System.out.println("Gesamtsumme: " + result.totalOrderSum + "€");
+            System.out.println("\nAnzahl Bestellungen: " + result.totalOrders());
+            System.out.println("Gesamtsumme: " + result.totalOrderSum() + "€");
             System.out.println("\nDrücke Enter, um fortzufahren...");
             scanner.nextLine();
 
@@ -191,8 +191,8 @@ public class Tui {
                     endDate
             );
 
-            System.out.println("\nAnzahl Bestellungen: " + result.totalOrders);
-            System.out.println("Gesamtsumme: " + result.totalOrderSum + "€");
+            System.out.println("\nAnzahl Bestellungen: " + result.totalOrders());
+            System.out.println("Gesamtsumme: " + result.totalOrderSum() + "€");
             System.out.println("\nDrücke Enter, um fortzufahren...");
             scanner.nextLine();
 
@@ -214,12 +214,12 @@ public class Tui {
     private static void handleHighestRevenueCustomer(DataContextDto dataContext) {
         CustomerRevenueDto result = Customer.getCustomerWithHighestSalesVolume(dataContext.getOrders());
 
-        if (result.customer == null) {
+        if (result.customer() == null) {
             System.out.println("\nEs liegen keine Bestellungen vor.");
         } else {
             System.out.println("\nKunde mit höchstem Umsatz: " +
-                    result.customer.getFirstname() + " " + result.customer.getLastname() +
-                    " (" + result.salesVolume + "€)");
+                    result.customer().getFirstname() + " " + result.customer().getLastname() +
+                    " (" + result.salesVolume() + "€)");
         }
 
         System.out.println("\nDrücke Enter, um fortzufahren...");
@@ -280,12 +280,12 @@ public class Tui {
                     year
             );
 
-            if (result.customer == null) {
+            if (result.customer() == null) {
                 System.out.println("\nKeine passenden Bestellungen gefunden.");
             } else {
                 System.out.println("\nUmsatzreichster Kunde: " +
-                        result.customer.getFirstname() + " " + result.customer.getLastname() +
-                        " (" + result.salesVolume + "€)");
+                        result.customer().getFirstname() + " " + result.customer().getLastname() +
+                        " (" + result.salesVolume() + "€)");
             }
 
             System.out.println("\nDrücke Enter, um fortzufahren...");
@@ -391,7 +391,7 @@ public class Tui {
                 System.out.println();
                 int rank = 1;
                 for (CustomerRevenueDto dto : results) {
-                    System.out.println(rank + ". " + dto.customer.getFirstname() + " " + dto.customer.getLastname() + " (" + dto.salesVolume + "€)");
+                    System.out.println(rank + ". " + dto.customer().getFirstname() + " " + dto.customer().getLastname() + " (" + dto.salesVolume() + "€)");
                     rank++;
                 }
             }

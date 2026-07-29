@@ -1,12 +1,9 @@
 package bs7projekt.src.dtos;
 
-public class OrderAnalysisDto {
+import java.math.BigDecimal;
 
-    public Integer totalOrders;
-    public Double totalOrderSum;
-
-    public OrderAnalysisDto(Integer totalOrders, Double totalOrderSum) {
-        this.totalOrders = totalOrders;
-        this.totalOrderSum = totalOrderSum;
-    }
+public record OrderAnalysisDto(
+        Integer totalOrders,
+        BigDecimal totalOrderSum
+) {
 }

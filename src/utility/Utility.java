@@ -5,6 +5,7 @@ import bs7projekt.src.models.Customer;
 import bs7projekt.src.models.Order;
 
 import java.io.*;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -119,7 +120,7 @@ public class Utility {
                 Order order = new Order(
                         orderId,
                         parseDate(data[9]),
-                        Double.parseDouble(normalizePrice(data[10])),
+                        new BigDecimal(normalizePrice(data[10])),
                         customer,
                         address
                 );

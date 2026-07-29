@@ -2,6 +2,7 @@ package bs7projekt.src.models;
 
 import bs7projekt.src.dtos.CustomerRevenueDto;
 
+import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.Month;
 import java.time.Year;
@@ -92,22 +93,22 @@ public class Customer {
     public static CustomerRevenueDto getCustomerWithHighestSalesVolume(
             Map<Integer, Order> orderMap
     ) {
-        Map<Customer, Double> customerSales = new HashMap<>();
+        Map<Customer, BigDecimal> customerSales = new HashMap<>();
 
         for (Order order : orderMap.values()) {
             Customer customer = order.getCustomer();
-            double currentSales = customerSales.getOrDefault(customer, 0.0);
+            BigDecimal currentSales = customerSales.getOrDefault(customer, new BigDecimal(0.0));
             customerSales.put(
                     customer,
-                    currentSales + order.getOrderPrice()
+                    currentSales.add(order.getOrderPrice())
             );
         }
 
         Customer highestCustomer = null;
-        double highestSales = 0;
+        BigDecimal highestSales = new BigDecimal(0);
 
-        for (Map.Entry<Customer, Double> entry : customerSales.entrySet()) {
-            if (entry.getValue() > highestSales) {
+        for (Map.Entry<Customer, BigDecimal> entry : customerSales.entrySet()) {
+            if (entry.getValue().compareTo(highestSales) > 0) {
                 highestSales = entry.getValue();
                 highestCustomer = entry.getKey();
             }
@@ -139,7 +140,7 @@ public class Customer {
             Month month,
             Year year
     ) {
-        Map<Customer, Double> customerSales = new HashMap<>();
+        Map<Customer, BigDecimal> customerSales = new HashMap<>();
 
         for (Order order : orderMap.values()) {
             Date orderDate = order.getOrderDate();
@@ -172,19 +173,19 @@ public class Customer {
             }
 
             Customer customer = order.getCustomer();
-            double currentSales = customerSales.getOrDefault(customer, 0.0);
+            BigDecimal currentSales = customerSales.getOrDefault(customer, new BigDecimal(0.0));
 
             customerSales.put(
                     customer,
-                    currentSales + order.getOrderPrice()
+                    currentSales.add(order.getOrderPrice())
             );
         }
 
         Customer highestCustomer = null;
-        double highestSalesVolume = 0;
+        BigDecimal highestSalesVolume = new BigDecimal(0);
 
-        for (Map.Entry<Customer, Double> entry : customerSales.entrySet()) {
-            if (entry.getValue() > highestSalesVolume) {
+        for (Map.Entry<Customer, BigDecimal> entry : customerSales.entrySet()) {
+            if (entry.getValue().compareTo(highestSalesVolume) > 0) {
                 highestCustomer = entry.getKey();
                 highestSalesVolume = entry.getValue();
             }

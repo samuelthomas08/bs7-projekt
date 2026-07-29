@@ -3,6 +3,7 @@ package bs7projekt.src.models;
 import bs7projekt.src.dtos.CustomerRevenueDto;
 import bs7projekt.src.dtos.OrderAnalysisDto;
 
+import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.Month;
 import java.time.Year;
@@ -12,11 +13,11 @@ public class Order {
 
     private int id;
     private Date orderDate;
-    private double orderPrice;
+    private BigDecimal orderPrice;
     private Customer customer;
     private Address address;
 
-    public Order(int id, Date orderDate, double orderPrice, Customer customer, Address address) {
+    public Order(int id, Date orderDate, BigDecimal orderPrice, Customer customer, Address address) {
         this.id = id;
         this.orderDate = orderDate;
         this.orderPrice = orderPrice;
@@ -40,11 +41,11 @@ public class Order {
         this.orderDate = orderDate;
     }
 
-    public double getOrderPrice() {
+    public BigDecimal getOrderPrice() {
         return orderPrice;
     }
 
-    public void setOrderPrice(double orderPrice) {
+    public void setOrderPrice(BigDecimal orderPrice) {
         this.orderPrice = orderPrice;
     }
 
@@ -100,7 +101,7 @@ public class Order {
             Month month,
             Year year
     ) {
-        double sum = 0;
+        BigDecimal sum = new BigDecimal(0);
         int count = 0;
 
         for (Order order : orderMap.values()) {
@@ -141,7 +142,7 @@ public class Order {
                 continue;
             }
 
-            sum += order.getOrderPrice();
+            sum.add(order.getOrderPrice());
             count++;
         }
 
@@ -164,7 +165,7 @@ public class Order {
             Date startDate,
             Date endDate
     ) {
-        double sum = 0;
+        BigDecimal sum = new BigDecimal(0);
         int count = 0;
 
         for (Order order : orderMap.values()) {
@@ -177,7 +178,7 @@ public class Order {
                 continue;
             }
 
-            sum += order.getOrderPrice();
+            sum.add(order.getOrderPrice());
             count++;
         }
 
@@ -200,7 +201,7 @@ public class Order {
             int windowInDays,
             int rowsLimit
     ) {
-        Map<Customer, Double> earlyRevenue = new HashMap<>();
+        Map<Customer, BigDecimal> earlyRevenue = new HashMap<>();
 
         for (Order order : orderMap.values()) {
             Customer customer = order.getCustomer();
@@ -223,16 +224,16 @@ public class Order {
                 continue;
             }
 
-            double currentRevenue = earlyRevenue.getOrDefault(customer, 0.0);
-            earlyRevenue.put(customer, currentRevenue + order.getOrderPrice());
+            BigDecimal currentRevenue = earlyRevenue.getOrDefault(customer, new BigDecimal(0.0));
+            earlyRevenue.put(customer, currentRevenue.add(order.getOrderPrice()));
         }
 
         List<CustomerRevenueDto> result = new ArrayList<>();
-        for (Map.Entry<Customer, Double> entry : earlyRevenue.entrySet()) {
+        for (Map.Entry<Customer, BigDecimal> entry : earlyRevenue.entrySet()) {
             result.add(new CustomerRevenueDto(entry.getKey(), entry.getValue()));
         }
 
-        result.sort((a, b) -> Double.compare(b.salesVolume, a.salesVolume));
+        result.sort((a, b) -> b.salesVolume().compareTo(a.salesVolume()));
 
         return result.subList(0, Math.min(rowsLimit, result.size()));
     }
