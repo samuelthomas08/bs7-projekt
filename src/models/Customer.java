@@ -4,8 +4,10 @@ import bs7projekt.src.dtos.CustomerRevenueDto;
 
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.Month;
 import java.time.Year;
+import java.time.temporal.WeekFields;
 import java.util.*;
 
 public class Customer {
@@ -13,11 +15,11 @@ public class Customer {
     private int id;
     private String firstname;
     private String lastname;
-    private Date birthday;
+    private LocalDate birthday;
     private String email;
-    private Date customerSince;
+    private LocalDate customerSince;
 
-    public Customer(int id, String firstname, String lastname, Date birthday, String email, Date customerSince) {
+    public Customer(int id, String firstname, String lastname, LocalDate birthday, String email, LocalDate customerSince) {
         this.id = id;
         this.firstname = firstname;
         this.lastname = lastname;
@@ -26,9 +28,6 @@ public class Customer {
         this.customerSince = customerSince;
     }
 
-    // ##########################################
-    // Getter & Setter
-    // ##########################################
     public int getId() {
         return id;
     }
@@ -49,11 +48,11 @@ public class Customer {
         this.lastname = lastname;
     }
 
-    public Date getBirthday() {
+    public LocalDate getBirthday() {
         return birthday;
     }
 
-    public void setBirthday(Date birthday) {
+    public void setBirthday(LocalDate birthday) {
         this.birthday = birthday;
     }
 
@@ -65,11 +64,11 @@ public class Customer {
         this.email = email;
     }
 
-    public Date getCustomerSince() {
+    public LocalDate getCustomerSince() {
         return customerSince;
     }
 
-    public void setCustomerSince(Date customerSince) {
+    public void setCustomerSince(LocalDate customerSince) {
         this.customerSince = customerSince;
     }
 
@@ -77,10 +76,10 @@ public class Customer {
         this.id = id;
     }
 
+
     // ##########################################
     // Custom Methods
     // ##########################################
-
     /**
      * Finds the customer with the highest total revenue across all orders.
      * Revenue is summed per customer via {@code orderPrice}, and the customer
@@ -134,7 +133,7 @@ public class Customer {
      */
     public static CustomerRevenueDto getCustomerSalesVolumeSinceTime(
             Map<Integer, Order> orderMap,
-            Date date,
+            LocalDate date,
             Byte week,
             DayOfWeek day,
             Month month,
@@ -143,32 +142,25 @@ public class Customer {
         Map<Customer, BigDecimal> customerSales = new HashMap<>();
 
         for (Order order : orderMap.values()) {
-            Date orderDate = order.getOrderDate();
+            LocalDate orderDate = order.getOrderDate();
 
-            Calendar calendar = Calendar.getInstance();
-            calendar.setTime(orderDate);
-
-            if (date != null && orderDate.before(date)) {
+            if (date != null && orderDate.isBefore(date)) {
                 continue;
             }
 
-            if (week != null && calendar.get(Calendar.WEEK_OF_YEAR) != week) {
+            if (week != null && orderDate.get(WeekFields.ISO.weekOfWeekBasedYear()) != week) {
                 continue;
             }
 
-            if (day != null) {
-                DayOfWeek orderDay = DayOfWeek.of(calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY ? 7 : calendar.get(Calendar.DAY_OF_WEEK) - 1);
-
-                if (orderDay != day) {
-                    continue;
-                }
-            }
-
-            if (month != null && calendar.get(Calendar.MONTH) + 1 != month.getValue()) {
+            if (day != null && orderDate.getDayOfWeek() != day) {
                 continue;
             }
 
-            if (year != null && calendar.get(Calendar.YEAR) != year.getValue()) {
+            if (month != null && orderDate.getMonth() != month) {
+                continue;
+            }
+
+            if (year != null && orderDate.getYear() != year.getValue()) {
                 continue;
             }
 
@@ -192,4 +184,5 @@ public class Customer {
         }
 
         return new CustomerRevenueDto(highestCustomer, highestSalesVolume);
-    }}
+    }
+}

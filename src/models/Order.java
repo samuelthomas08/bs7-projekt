@@ -5,19 +5,21 @@ import bs7projekt.src.dtos.OrderAnalysisDto;
 
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.Month;
 import java.time.Year;
+import java.time.temporal.WeekFields;
 import java.util.*;
 
 public class Order {
 
     private int id;
-    private Date orderDate;
+    private LocalDate orderDate;
     private BigDecimal orderPrice;
     private Customer customer;
     private Address address;
 
-    public Order(int id, Date orderDate, BigDecimal orderPrice, Customer customer, Address address) {
+    public Order(int id, LocalDate orderDate, BigDecimal orderPrice, Customer customer, Address address) {
         this.id = id;
         this.orderDate = orderDate;
         this.orderPrice = orderPrice;
@@ -25,19 +27,15 @@ public class Order {
         this.address = address;
     }
 
-
-    // ##########################################
-    // Getter & Setter
-    // ##########################################
     public int getId() {
         return id;
     }
 
-    public Date getOrderDate() {
+    public LocalDate getOrderDate() {
         return orderDate;
     }
 
-    public void setOrderDate(Date orderDate) {
+    public void setOrderDate(LocalDate orderDate) {
         this.orderDate = orderDate;
     }
 
@@ -95,7 +93,7 @@ public class Order {
             Map<Integer, Order> orderMap,
             Customer customer,
             String postalCode,
-            Date date,
+            LocalDate date,
             Byte week,
             DayOfWeek day,
             Month month,
@@ -105,10 +103,7 @@ public class Order {
         int count = 0;
 
         for (Order order : orderMap.values()) {
-            Date orderDate = order.getOrderDate();
-
-            Calendar calendar = Calendar.getInstance();
-            calendar.setTime(orderDate);
+            LocalDate orderDate = order.getOrderDate();
 
             if (customer != null && !order.getCustomer().equals(customer)) {
                 continue;
@@ -119,30 +114,20 @@ public class Order {
             if (date != null && !orderDate.equals(date)) {
                 continue;
             }
-            if (week != null && calendar.get(Calendar.WEEK_OF_YEAR) != week) {
+            if (week != null && orderDate.get(WeekFields.ISO.weekOfWeekBasedYear()) != week) {
                 continue;
             }
-            if (day != null) {
-                DayOfWeek orderDay = DayOfWeek.of(
-                        calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY
-                                ? 7
-                                : calendar.get(Calendar.DAY_OF_WEEK) - 1
-                );
-
-                if (orderDay != day) {
-                    continue;
-                }
-            }
-            if (month != null &&
-                    calendar.get(Calendar.MONTH) + 1 != month.getValue()) {
+            if (day != null && orderDate.getDayOfWeek() != day) {
                 continue;
             }
-            if (year != null &&
-                    calendar.get(Calendar.YEAR) != year.getValue()) {
+            if (month != null && orderDate.getMonth() != month) {
+                continue;
+            }
+            if (year != null && orderDate.getYear() != year.getValue()) {
                 continue;
             }
 
-            sum.add(order.getOrderPrice());
+            sum = sum.add(order.getOrderPrice());
             count++;
         }
 
@@ -162,23 +147,23 @@ public class Order {
      */
     public static OrderAnalysisDto filterOrdersInTimespan(
             Map<Integer, Order> orderMap,
-            Date startDate,
-            Date endDate
+            LocalDate startDate,
+            LocalDate endDate
     ) {
         BigDecimal sum = new BigDecimal(0);
         int count = 0;
 
         for (Order order : orderMap.values()) {
-            Date orderDate = order.getOrderDate();
+            LocalDate orderDate = order.getOrderDate();
 
-            if (startDate != null && orderDate.before(startDate)) {
+            if (startDate != null && orderDate.isBefore(startDate)) {
                 continue;
             }
-            if (endDate != null && orderDate.after(endDate)) {
+            if (endDate != null && orderDate.isAfter(endDate)) {
                 continue;
             }
 
-            sum.add(order.getOrderPrice());
+            sum = sum.add(order.getOrderPrice());
             count++;
         }
 
@@ -205,20 +190,18 @@ public class Order {
 
         for (Order order : orderMap.values()) {
             Customer customer = order.getCustomer();
-            Date customerSince = customer.getCustomerSince();
-            Date orderDate = order.getOrderDate();
+            LocalDate customerSince = customer.getCustomerSince();
+            LocalDate orderDate = order.getOrderDate();
 
             if (customerSince == null) {
                 continue;
             }
 
-            Calendar windowEnd = Calendar.getInstance();
-            windowEnd.setTime(customerSince);
-            windowEnd.add(Calendar.DAY_OF_YEAR, windowInDays);
+            LocalDate windowEnd = customerSince.plusDays(windowInDays);
 
             boolean withinWindow =
-                    !orderDate.before(customerSince) &&
-                            orderDate.before(windowEnd.getTime());
+                    !orderDate.isBefore(customerSince) &&
+                            orderDate.isBefore(windowEnd);
 
             if (!withinWindow) {
                 continue;

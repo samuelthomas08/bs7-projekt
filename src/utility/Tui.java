@@ -7,6 +7,7 @@ import bs7projekt.src.models.Customer;
 import bs7projekt.src.models.Order;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.Month;
 import java.time.Year;
 import java.util.*;
@@ -28,35 +29,36 @@ public class Tui {
 
         System.out.println("---- BS7 Projekt ----\n");
 
-        Map<String, Runnable> menuOptions = new HashMap<>(){{
+        Map<String, Runnable> menuOptions = new LinkedHashMap<>(){{
             put("Daten exportieren", () -> handleExportData(dataContext));
             put("Bestellungen filtern", () -> handleFilterOrders(dataContext));
             put("Analyse der Bestellungen in einem Zeitraum", () -> handleAnalyzeOrdersInTimespan(dataContext));
             put("Kunde mit höchstem Umsatz ermitteln", () -> handleHighestRevenueCustomer(dataContext));
             put("Umsatzreichster Kunde seit Zeitpunkt", () -> handleTopCustomerSinceTime(dataContext));
             put("Kunden mit höchstem Frühumsatz", () -> handleTopCustomersByEarlyRevenue(dataContext));
+            put("Beenden", () -> System.exit(0));
         }};
 
-        byte listMenuCount = 1;
-        for(Map.Entry<String, Runnable> entry : menuOptions.entrySet()) {
-            System.out.println("[" + listMenuCount + "]" + entry.getKey());
-            listMenuCount++;
+        while (true) {
+            byte listMenuCount = 1;
+            for (Map.Entry<String, Runnable> entry : menuOptions.entrySet()) {
+                System.out.println("\u001B[1m[" + listMenuCount + "]\u001B[0m " + entry.getKey());
+                listMenuCount++;
+            }
+
+            System.out.println("Was möchtest du tun?");
+
+            Scanner scanner = new Scanner(System.in);
+            byte userChoice = Byte.parseByte(scanner.nextLine());
+
+            List<Map.Entry<String, Runnable>> options = new ArrayList<>(menuOptions.entrySet());
+
+            try {
+                options.get(userChoice - 1).getValue().run();
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+            }
         }
-
-        System.out.println("Was möchtest du tun?");
-
-        Scanner scanner = new Scanner(System.in);
-        byte userChoice = Byte.parseByte(scanner.nextLine());
-
-        List<Map.Entry<String, Runnable>> options = new ArrayList<>(menuOptions.entrySet());
-
-        try {
-            options.get(userChoice - 1).getValue().run();
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-        }
-
-        clearConsole();
     }
 
     /**
@@ -67,8 +69,6 @@ public class Tui {
      */
     private static void handleExportData(DataContextDto dataContext) {
         Utility.exportData(dataContext);
-
-        renderMenu(dataContext);
     }
 
     /**
@@ -86,7 +86,7 @@ public class Tui {
         try {
             Customer customer = null;
             String postalCode;
-            Date date = null;
+            LocalDate date = null;
             Byte week = null;
             DayOfWeek day = null;
             Month month = null;
@@ -94,14 +94,14 @@ public class Tui {
 
             String customerEmail = readOrderAnalysisFilterInput(scanner, "Kunde (E-Mail-Adresse): ");
             if (customerEmail != null) {
-                customer = dataContext.getCustomers().get(customerEmail);
+                customer = dataContext.customers().get(customerEmail);
             }
 
             postalCode = readOrderAnalysisFilterInput(scanner, "Postleitzahl: ");
 
             String dateInput = readOrderAnalysisFilterInput(scanner, "Datum (yyyy-MM-dd): ");
             if (dateInput != null) {
-                date = java.sql.Date.valueOf(dateInput);
+                date = LocalDate.parse(dateInput);
             }
 
             String weekInput = readOrderAnalysisFilterInput(scanner, "Kalenderwoche (1-53): ");
@@ -136,7 +136,7 @@ public class Tui {
             }
 
             OrderAnalysisDto result = Order.filterOrders(
-                    dataContext.getOrders(),
+                    dataContext.orders(),
                     customer,
                     postalCode,
                     date,
@@ -156,8 +156,6 @@ public class Tui {
         } catch (Exception e) {
             System.out.println("Ungültige Eingabe: " + e.getMessage());
         }
-
-        renderMenu(dataContext);
     }
 
     /**
@@ -172,21 +170,21 @@ public class Tui {
         Scanner scanner = new Scanner(System.in);
 
         try {
-            Date startDate = null;
-            Date endDate = null;
+            LocalDate startDate = null;
+            LocalDate endDate = null;
 
             String startInput = readOrderAnalysisFilterInput(scanner, "Startdatum (yyyy-MM-dd): ");
             if (startInput != null) {
-                startDate = java.sql.Date.valueOf(startInput);
+                startDate = LocalDate.parse(startInput);
             }
 
             String endInput = readOrderAnalysisFilterInput(scanner, "Enddatum (yyyy-MM-dd): ");
             if (endInput != null) {
-                endDate = java.sql.Date.valueOf(endInput);
+                endDate = LocalDate.parse(endInput);
             }
 
             OrderAnalysisDto result = Order.filterOrdersInTimespan(
-                    dataContext.getOrders(),
+                    dataContext.orders(),
                     startDate,
                     endDate
             );
@@ -201,8 +199,6 @@ public class Tui {
         } catch (Exception e) {
             System.out.println("Ungültige Eingabe: " + e.getMessage());
         }
-
-        renderMenu(dataContext);
     }
 
     /**
@@ -212,7 +208,7 @@ public class Tui {
      * @param dataContext the data to evaluate
      */
     private static void handleHighestRevenueCustomer(DataContextDto dataContext) {
-        CustomerRevenueDto result = Customer.getCustomerWithHighestSalesVolume(dataContext.getOrders());
+        CustomerRevenueDto result = Customer.getCustomerWithHighestSalesVolume(dataContext.orders());
 
         if (result.customer() == null) {
             System.out.println("\nEs liegen keine Bestellungen vor.");
@@ -224,8 +220,6 @@ public class Tui {
 
         System.out.println("\nDrücke Enter, um fortzufahren...");
         new Scanner(System.in).nextLine();
-
-        renderMenu(dataContext);
     }
 
     /**
@@ -240,7 +234,7 @@ public class Tui {
         Scanner scanner = new Scanner(System.in);
 
         try {
-            Date date = null;
+            LocalDate date = null;
             Byte week = null;
             DayOfWeek day = null;
             Month month = null;
@@ -248,7 +242,7 @@ public class Tui {
 
             String dateInput = readOrderAnalysisFilterInput(scanner, "Datum ab (yyyy-MM-dd): ");
             if (dateInput != null) {
-                date = java.sql.Date.valueOf(dateInput);
+                date = LocalDate.parse(dateInput);
             }
 
             String weekInput = readOrderAnalysisFilterInput(scanner, "Kalenderwoche (1-53): ");
@@ -272,7 +266,7 @@ public class Tui {
             }
 
             CustomerRevenueDto result = Customer.getCustomerSalesVolumeSinceTime(
-                    dataContext.getOrders(),
+                    dataContext.orders(),
                     date,
                     week,
                     day,
@@ -296,8 +290,6 @@ public class Tui {
         } catch (Exception e) {
             System.out.println("Ungültige Eingabe: " + e.getMessage());
         }
-
-        renderMenu(dataContext);
     }
 
     /**
@@ -315,9 +307,7 @@ public class Tui {
             System.out.println("Wo befindet sich die CSV-Datei (Absoluter Pfad):");
             path = scanner.nextLine();
 
-            String extension = (path.substring(path.lastIndexOf('\\') + 1).lastIndexOf('.') > 0) ? path.substring(path.lastIndexOf('\\') + 1).substring(path.substring(path.lastIndexOf('\\') + 1).lastIndexOf('.') + 1) : "";
-
-            if(!extension.equals("csv")) {
+            if(path.substring(path.indexOf('.')+1) == "csv") {
                 System.out.println("Die angegebene Datei ist keine CSV-Datei!\n");
             } else {
                 break;
@@ -380,7 +370,7 @@ public class Tui {
             int rowsLimit = limitInput != null ? Integer.parseInt(limitInput) : 5;
 
             List<CustomerRevenueDto> results = Order.getTopCustomersByEarlyRevenue(
-                    dataContext.getOrders(),
+                    dataContext.orders(),
                     windowInDays,
                     rowsLimit
             );

@@ -9,7 +9,6 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.sql.Date;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -72,7 +71,7 @@ public class Utility {
                 // Customer
                 // ------------------------
                 String email = data[4];
-                Customer customer = dataContext.getCustomers().get(email);
+                Customer customer = dataContext.customers().get(email);
 
                 if (customer == null) {
                     customer = new Customer(
@@ -83,7 +82,7 @@ public class Utility {
                             data[4],
                             parseDate(data[3])
                     );
-                    dataContext.getCustomers().put(email, customer);
+                    dataContext.customers().put(email, customer);
                 }
 
                 // ------------------------
@@ -107,11 +106,11 @@ public class Utility {
                             data[8]
                     );
 
-                    dataContext.getAddresses().put(addressId, address);
+                    dataContext.addresses().put(addressId, address);
                     addressLookup.put(addressKey, addressId);
                     addressId++;
                 } else {
-                    address = dataContext.getAddresses().get(existingAddressId);
+                    address = dataContext.addresses().get(existingAddressId);
                 }
 
                 // ------------------------
@@ -125,7 +124,7 @@ public class Utility {
                         address
                 );
 
-                dataContext.getOrders().put(orderId, order);
+                dataContext.orders().put(orderId, order);
                 orderId++;
 
             } catch (Exception e) {
@@ -156,9 +155,9 @@ public class Utility {
         if (!dir.exists()) {
             dir.mkdirs();
         }
-        exportCustomers(outputPath + "/customers.csv", dataContext.getCustomers());
-        exportAddresses(outputPath + "/addresses.csv", dataContext.getAddresses());
-        exportOrders(outputPath + "/orders.csv", dataContext.getOrders());
+        exportCustomers(outputPath + "/customers.csv", dataContext.customers());
+        exportAddresses(outputPath + "/addresses.csv", dataContext.addresses());
+        exportOrders(outputPath + "/orders.csv", dataContext.orders());
 
         System.out.println("Der Export wurde erfolgreich durchgeführt!");
     }
@@ -295,9 +294,7 @@ public class Utility {
      * @throws java.time.format.DateTimeParseException if the normalized string does
      *         not represent a valid, existing calendar date
      */
-    private static Date parseDate(String raw) {
-        String normalized = normalizeDate(raw);
-        LocalDate localDate = LocalDate.parse(normalized);
-        return Date.valueOf(localDate);
+    private static LocalDate parseDate(String raw) {
+        return LocalDate.parse(normalizeDate(raw));
     }
 }

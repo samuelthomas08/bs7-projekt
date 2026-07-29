@@ -16,9 +16,6 @@ public class Address {
         this.location = location;
     }
 
-    // ##########################################
-    // Getter & Setter
-    // ##########################################
     public String getLocation() {
         return location;
     }
